@@ -1,0 +1,103 @@
+var weblnflag = false;
+
+async function detectWebLNProvider(timeoutParam) {
+  const timeout = timeoutParam ?? 3000;
+  const interval = 100;
+  let handled = false;
+
+  return new Promise((resolve) => {
+    if (window.webln) {
+      handleWebLN();
+    } else {
+      document.addEventListener("webln:ready", handleWebLN, { once: true });
+
+      let i = 0;
+      const checkInterval = setInterval(function() {
+        if (window.webln || i >= timeout/interval) {
+          handleWebLN();
+          clearInterval(checkInterval);
+        }
+        i++;
+      }, interval);
+    }
+
+    function handleWebLN() {
+      if (handled) {
+        return;
+      }
+      handled = true;
+
+      document.removeEventListener("webln:ready", handleWebLN);
+
+      if (window.webln) {
+
+        resolve(window.webln);
+      } else {
+        resolve(null);
+      }
+    }
+  });
+}
+
+async function pay(invoice) {
+
+  if(typeof window.webln === 'undefined')
+    return;
+
+   await webln.enable();
+   const payment = await webln.sendPayment(invoice);
+   console.log(payment);
+}
+
+async function invoice(sendamount) {
+  if(typeof window.webln === 'undefined')
+    return;
+
+   await webln.enable();
+   const invoice = await webln.makeInvoice({
+       amount: sendamount,
+       comment: "alby test",
+   });
+   console.log(invoice);
+}
+
+
+async function connect() {
+   if(typeof window.webln === 'undefined')
+      return;
+   try {
+      await window.webln.enable();
+   } catch(err) { 
+      console.log(err);
+   }
+   location.reload();
+}
+
+
+
+async function pay2() {
+//  const comment = document.getElementById("message").value;
+  const comment = "get value";
+  const { invoice, params, successAction, validatePreimage } =
+    await LnurlPay.requestInvoice({
+      lnUrlOrAddress: "ben@lnurl.com",
+      tokens: 10,
+      comment: comment,
+    });
+
+  if (window.webln) {
+    await webln.enable();
+
+    const payResponse = await webln.sendPayment(invoice);
+
+    document.getElementById("preimage").innerHTML = payResponse.preimage;
+
+    if (validatePreimage(payResponse.preimage)) {
+      document.getElementById("success").append("yay, paid -- ");
+    } else {
+      alert("fail");
+    }
+  } else {
+    alert("NO webln enabled");
+  }
+}

@@ -1,0 +1,377 @@
+
+var ln_window = false;
+let downTimer;
+let nIntervId;
+var timeleft = 60;
+var token = "";
+var countdown = 0;
+var login_result = false;
+var pay_result = false;
+var k1 = 0;
+var lnurl = "";
+var lnaddr = "";
+var btcaddr = "";
+var cid = 0;
+var w = window.innerWidth;
+var h = window.innerHeight;
+var sw = 350;
+var swp = " ";
+var oldlna = "";
+var desc = "捐贈天火字典";
+
+
+var copylnurl = '<div class="green-button"><a class="wbutton" id="lnurl_copy" href="javascript:void(0)" onclick="Jscopyclipboard();">複製 LNURL</a></div>';
+var applogina = '<div class="green-button"><a class="wbutton" id="app_login" href="lightning:'
+var apploginc = '<div class="green-button"><a class="wbutton" id="app_login" href="bitcoin:'
+var apploginb = '">APP 登入</a></div>';
+var helpbutton = '<div class="help-button"><a class="wbutton" id="help" href="javascript:void(0)" onclick="help();">💁 &#9432;</a></div>';
+var logarea = '<tr><td colspan="3"><div class="login_log" id="login_log"></div></td></tr>';
+var caption = '<caption>使用</<caption>';
+
+var apppayb = '">APP 支付</a></div>';
+var copylnaddr = '<div class="green-button"><a class="wbutton" id="lnurl_copy" href="javascript:void(0)" onclick="Jscopylnaclipboard();">複製閃電發票</a></div>';
+var copybtcaddr = '<div class="green-button"><a class="wbutton" id="lnurl_copy" href="javascript:void(0)" onclick="Jscopybtcaclipboard();">複製比特幣位置</a></div>';
+
+function delay(time) {
+  return new Promise(resolve => setTimeout(resolve, time));
+}
+
+function getWidth() {
+  return Math.min(
+    document.body.scrollWidth,
+    document.documentElement.scrollWidth,
+    document.body.offsetWidth,
+    document.documentElement.offsetWidth,
+    document.documentElement.clientWidth,
+    window.innerWidth
+  );
+}
+
+function getHeight() {
+  return Math.min(
+    document.body.scrollHeight,
+    document.documentElement.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.offsetHeight,
+    document.documentElement.clientHeight,
+    window.innerHeight
+  );
+}
+
+function Jscopyclipboard() {
+    navigator.clipboard.writeText(lnurl);
+    document.getElementById("lnurl_copy").innerHTML = '已經複製完成!!';
+}
+
+function Jscopylnaclipboard() {
+    navigator.clipboard.writeText(lnaddr);
+    document.getElementById("lnurl_copy").innerHTML = '已經複製完成!!';
+}
+
+function Jscopybtcaclipboard() {
+    navigator.clipboard.writeText(btcaddr);
+    document.getElementById("lnurl_copy").innerHTML = '已經複製完成!!';
+}
+
+
+async function login_qr() {
+    return fetch('https://cdict.info/login.php')
+           .then( response => { response.json().then( result => {
+                 //console.log(result.k1)
+                 k1 = result.k1;
+                 lnurl = result.lnurl;
+                 document.getElementById('login_qr').innerHTML = '<table class="ltb">' + caption + '<thead><tr class="tb-tr"><th class="tb-tr" colspan="3"><font>閃電網路錢包登入</font><div class="lclose" onclick="Jslogin()">✕</div></th></tr><tr><th colspan="3"><font size="4">⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️</font></th></tr><tr><th class="tb-trqr" colspan="3"><div class="qrimg" id="qrimg"><img class="qr" src="' + result.qr + '" alt=\"QR Code" /><div></th></tr></thead><tbody><tr><td colspan="3"><div class="lnurl" id="lnurl">' + lnurl + '</div></td></tr><tr><td colspan="2"><progress value="0" max="60" id="lnprogressBar"></progress></td><td><font color="red" id="timeleft">60</font></td></tr><tr><td>' + copylnurl + '</td><td>' + applogina + lnurl + apploginb + '</td><td>' + helpbutton + '</td></tr>' + logarea + '</tbody></table>';
+                 w = getWidth();
+                 h = getHeight();
+                 if ( w > h ) {
+                    sw = h;
+                 } else {
+                    sw = w;
+                 }
+                 swp = Math.floor(sw*0.5) + 'px';
+                 document.getElementById("lnurl").style.width = swp;
+                 document.getElementById("login_log").style.width = swp;
+                 document.getElementById("qrimg").style.backgroundImage ='none';
+                 //console.log(swp);
+                 }).catch((err) => console.log(err));
+           });
+}
+
+
+function Jslogout() {
+    fetch('https://cdict.info/logout.php', {method: 'get',credentials: 'include' })
+    .then(function(response) {
+    // response
+//        document.write("Logout!");
+        document.cookie = "PHPSESSID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+//        alert(document.cookie);
+        location.reload();
+        return
+    }).catch(function(err) {
+    // Error 
+    })
+}
+
+async function Jslogin() {
+    let loginModal=document.querySelector("#login_dialog");
+    if ( !ln_window ) {
+        navigator.clipboard.writeText("");
+        loginModal.showModal();
+        ln_window = true;
+        timeleft = 60;
+        await login_qr();
+        
+        downTimer = setInterval(function(){
+          change_qr()
+        }, 1000);
+        nIntervId = setInterval(function () {
+          check_login()
+        }, 3000)
+    } else {
+        clearInterval(downTimer);
+        clearInterval(nIntervId);
+        loginModal.close();
+        timeleft = 60;
+        ln_window = false;
+    }
+
+}
+
+function check_login() {
+    document.getElementById("lnurl_copy").innerHTML = '複製 LNURL';
+    fetch('https://cdict.info/check.php?k1='+k1,{method: 'get',credentials: 'include' }).then(function(response) {
+        return response.json()
+    }).then(function(checkj) {
+        //console.log(checkj)
+        if ( checkj.status == 'success' ) {
+             document.getElementById('login_log').innerHTML = "login success<br>";
+             clearInterval(nIntervId);
+             login_result = true;
+             document.getElementById("lnurl").innerHTML = '<center><font style="color:red;font-size:3em;">登入成功</font></center>';
+             setTimeout(function(){
+                 console.log("登入成功");
+                 location.reload();
+             }, 3000);
+        } else {
+             countdown = countdown +1;
+             document.getElementById('login_log').innerHTML = countdown + " login error" + k1 +"<br>";
+        }
+    }).catch(function(err) {
+      // Error :(
+    })
+}
+
+async function change_qr() {
+  if ( login_result == true ) {
+       clearInterval(downTimer);
+  }
+  if(timeleft <= 0){
+    timeleft = 60;
+    await login_qr();
+  }
+  document.getElementById("lnprogressBar").value = 60 - timeleft;
+  document.getElementById("timeleft").innerHTML = timeleft;
+  timeleft -= 1;
+}
+
+ 
+async function change_donate_qr() {
+//  console.log('enter ' +timeleft);
+  if ( pay_result == true ) {
+       clearInterval(downTimer);
+       return;
+  }
+//  console.log('== ' +timeleft);
+  if(timeleft == 0){
+    donate_qr(desc);
+    timeleft = -1 ;
+    return;
+  }
+  document.getElementById("lnprogressBar").value = 55 - timeleft;
+  document.getElementById("timeleft").innerHTML = timeleft;
+  if ( timeleft == 55 ) {
+     oldlna = lnaddr;
+  }
+  timeleft -= 1;
+//  console.log('exit ' +timeleft);
+}
+
+
+
+async function donate_qr(des) {
+    var damount = document.querySelector("input[type='radio'][name=amount]:checked").value;
+   const params = {
+       "key": skey,
+       "desc": des,
+       "amount": damount
+   }
+
+    return await fetch('https://cdict.info/donate/donate.php',{
+          method: 'POST',
+          headers: {
+                  'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(params)
+   })
+           .then( response => { response.json().then( result => {
+                 //console.log(result.cid);
+                 //console.log(result.qr);
+                 //console.log(result.lna);
+                 cid = result.cid;
+                 lnaddr = result.lna;
+                 document.getElementById('login_qr').innerHTML = '<table class="ltb">' + caption + '<thead><tr class="tb-tr"><th class="tb-tr" colspan="3"><font>閃電網路錢包支付</font><div class="lclose" onclick="Jslogin()">✕</div></th></tr><tr><th colspan="3"><font size="4">⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️</font></th></tr><tr><th class="tb-trqr" colspan="3"><div class="qrimg" id="qrimg"><img class="qr" src="' + result.qr + '" alt=\"QR Code" /><div></th></tr></thead><tbody><tr><td colspan="3"><div class="lnurl" id="lnurl">' + lnaddr + '</div></td></tr><tr><td colspan="2"><progress value="0" max="55" id="lnprogressBar"></progress></td><td><font color="red" id="timeleft">55</font></td></tr><tr><td>' + copylnaddr + '</td><td>' + applogina + lnaddr + apppayb + '</td><td>' + helpbutton + '</td></tr>' + logarea + '</tbody></table>';
+                 w = getWidth();
+                 h = getHeight();
+                 if ( w > h ) {
+                    sw = h;
+                 } else {
+                    sw = w;
+                 }
+                 swp = Math.floor(sw*0.5) + 'px';
+                 document.getElementById("lnurl").style.width = Math.floor(sw*0.6) + 'px';
+                 document.getElementById("login_log").style.width = swp;
+                 document.getElementById("qrimg").style.backgroundImage ='none';
+                 //console.log(swp);
+                 }).catch((err) => console.log(err));
+           });
+}
+
+function check_pay() {
+    document.getElementById("lnurl_copy").innerHTML = '複製閃電發票';
+    fetch('https://cdict.info/donate/checkln.php?sid='+cid,{method: 'get',credentials: 'include' }).then(function(response) {
+        return response.json()
+    }).then(function(checkj) {
+        //console.log(checkj)
+        if ( checkj.status == 'success' ) {
+             document.getElementById('login_log').innerHTML = "login success<br>";
+             clearInterval(nIntervId);
+             pay_result = true;
+             document.getElementById("lnurl").innerHTML = '<center><font style="color:red;font-size:3em;">已經支付完成</font></center>'; 
+             setTimeout(function(){
+                 //console.log("支付成功重整頁面");
+                 location.reload();
+             }, 5000);
+        } else {
+             countdown = countdown +1;
+             document.getElementById('login_log').innerHTML = countdown + " login error" + sid +"<br>";
+        }
+    }).catch(function(err) {
+      // Error :(
+    })
+}
+
+
+
+async function Jsdonate() {
+    let loginModal=document.querySelector("#login_dialog");
+    if ( !ln_window ) {
+        loginModal.showModal();
+        ln_window = true;
+        lnaddr_wait ='<font style="color:ivory;font-size:4em;">請等待閃點支付發票生成</font>';
+        timeleft = 55;
+        document.getElementById('login_qr').innerHTML = '<table class="ltb">' + caption + '<thead><tr class="tb-tr"><th class="tb-tr" colspan="3"><font>閃電網路錢包支付</font><div class="lclose" onclick="Jslogin()">✕</div></th></tr><tr><th colspan="3"><font size="4">⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️</font></th></tr><tr><th class="tb-trqr" colspan="3"><div class="qrimg" id="qrimg"><div></th></tr></thead><tbody><tr><td colspan="3"><div class="lnurl" id="lnurl">' + lnaddr_wait + '</div></td></tr><tr><td colspan="2"><progress value="0" max="55" id="lnprogressBar"></progress></td><td><font color="red" id="timeleft">請稍後</font></td></tr><tr><td>' + copylnaddr + '</td><td>' + applogina + lnaddr + apppayb + '</td><td>' + helpbutton + '</td></tr>' + logarea + '</tbody></table>';
+         document.getElementsByClassName('green-button')[0].style.visibility = 'hidden';
+         document.getElementsByClassName('green-button')[1].style.visibility = 'hidden';
+         document.getElementById('lnprogressBar').style.visibility = 'hidden';
+        await donate_qr(desc);
+       downTimer = setInterval(function(){
+          if ( timeleft != -1  || oldlna != lnaddr) {
+             if ( timeleft == -1 && oldlna != lnaddr )
+                 timeleft = 55;
+             change_donate_qr()
+          }
+        }, 1000);
+        nIntervId = setInterval(function () {
+          if ( cid != 0)
+            check_pay()
+        }, 3000)
+    } else {
+        clearInterval(downTimer);
+        clearInterval(nIntervId);
+        loginModal.close();
+        timeleft = 55;
+        ln_window = false;
+    }
+
+}
+
+async function btc_qr() {
+    return await fetch('https://cdict.info/donate/donatebtc.php')
+           .then( response => { response.json().then( result => {
+                 //console.log(result.cid);
+                 //console.log(result.qr);
+                 //console.log(result.btca);
+                 cid = result.cid;
+                 btcaddr = result.btca;
+                 document.getElementById('login_qr').innerHTML = '<table class="ltb">' + caption + '<thead><tr class="tb-tr"><th class="tb-tr" colspan="3"><font>比特幣錢包支付</font><div class="lclose" onclick="Jslogin()">✕</div></th></tr><tr><th colspan="3"><font color=tomato size="4">₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿&nbsp;₿</font></th></tr><tr><th class="tb-trqr" colspan="3"><div class="qrimg" id="qrimg"><img class="qr" src="' + result.qr + '" alt=\"QR Code" /><div></th></tr></thead><tbody><tr><td colspan="3"><div class="lnurl" id="lnurl">' + btcaddr + '</div></td></tr><tr><td colspan="2"><progress value="0" max="55" id="lnprogressBar"></progress></td><td><font color="red" id="timeleft">∞</font></td></tr><tr><td>' + copybtcaddr + '</td><td>' + apploginc + btcaddr  + apppayb + '</td><td>' + helpbutton + '</td></tr>' + logarea + '</tbody></table>';
+                 w = getWidth();
+                 h = getHeight();
+                 if ( w > h ) {
+                    sw = h;
+                 } else {
+                    sw = w;
+                 }
+                 swp = Math.floor(sw*0.5) + 'px';
+                 document.getElementById("lnurl").style.width = swp*1.1;
+                 document.getElementById("login_log").style.width = swp;
+                 document.getElementById("qrimg").style.backgroundImage ='none';
+                 document.getElementById('lnprogressBar').style.visibility = 'hidden';
+
+                 //console.log(swp);
+                 }).catch((err) => console.log(err));
+           });
+}
+
+async function JsdonateBTC() {
+    let loginModal=document.querySelector("#login_dialog");
+    if ( !ln_window ) {
+        loginModal.showModal();
+        ln_window = true;
+        await btc_qr();
+        downTimer = setInterval(function(){
+           document.getElementById("lnurl_copy").innerHTML = '複製比特幣位置';
+        }, 3000);
+    } else {
+        clearInterval(downTimer);
+        loginModal.close();
+        ln_window = false;
+    }
+
+}
+
+async function setusername() {
+   var key = skey;
+   const params = {
+       "key": skey,
+       "control": "username",
+       "value": document.getElementById("username").value
+   }
+
+   const response = await fetch('https://cdict.info/profile.php',{
+          method: 'POST',
+          headers: {
+                  'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(params)
+   });
+   const jdata = await response.json();
+   console.log(jdata.status);
+   let errModal=document.querySelector("#error_message");
+   switch ( jdata.status ) {
+      case -1:
+           document.getElementById("error_text").innerHTML = "違法呼叫，請正常使用網站。";           
+           errModal.showModal();
+           break;
+      case -2:
+           document.getElementById("error_text").innerHTML = "稱呼過短，請重新設定。";           
+           errModal.showModal();
+           break;
+      case -3:
+           document.getElementById("error_text").innerHTML = "稱呼過長，請重新設定。";           
+           errModal.showModal();
+           break;
+      default:
+           location.reload();
+          
+   }
+}
